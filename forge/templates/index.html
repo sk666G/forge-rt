@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>forge-rt</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg:      #08050a;
+    --panel:   #0f0810;
+    --border:  #2a1030;
+    --text:    #cbb8d8;
+    --dim:     #6b5470;
+    --purple:  #b76bff;
+    --blood:   #8a1a4a;
+    --hot:     #d24a9b;
+    --ok:      #8fd18a;
+    --err:     #e2657c;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: radial-gradient(ellipse at top, #140818 0%, var(--bg) 70%);
+    color: var(--text);
+    font: 13px/1.55 ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
+  }
+  body { display: flex; flex-direction: column; padding: 18px; }
+
+  /* bleeding ascii banner */
+  #banner {
+    font-size: 8px;
+    line-height: 1;
+    white-space: pre;
+    color: var(--blood);
+    text-shadow:
+      0 0 4px  rgba(180,20,80,0.9),
+      0 0 12px rgba(140,10,60,0.7),
+      0 0 24px rgba(120,0,50,0.5);
+    margin: 0 0 6px 0;
+    overflow: hidden;
+    animation: bleed 4s ease-in-out infinite alternate;
+  }
+  @keyframes bleed {
+    from { text-shadow: 0 0 4px rgba(180,20,80,0.9),
+                        0 0 12px rgba(140,10,60,0.7),
+                        0 0 24px rgba(120,0,50,0.5); }
+    to   { text-shadow: 0 0 8px rgba(220,40,110,1),
+                        0 0 24px rgba(170,20,80,0.9),
+                        0 0 44px rgba(140,0,60,0.7); }
+  }
+
+  #sub {
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  #bar {
+    display: flex; gap: 8px; margin-bottom: 10px;
+  }
+  select, input, button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 11px;
+    font: inherit;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  select:focus, input:focus {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 2px rgba(183,107,255,0.15);
+  }
+  button {
+    cursor: pointer;
+    color: var(--purple);
+    border-color: #3a1a4a;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  button:hover {
+    background: #1a0f22;
+    color: var(--hot);
+    border-color: var(--hot);
+    box-shadow: 0 0 12px rgba(210,74,155,0.35);
+  }
+  #q { flex: 1; min-width: 200px; }
+
+  #out {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-radius: 3px;
+    color: var(--text);
+    box-shadow: inset 0 0 40px rgba(80,0,60,0.25);
+  }
+  #out::selection { background: var(--blood); color: #fff; }
+
+  #stat {
+    color: var(--dim);
+    font-size: 11px;
+    margin-top: 8px;
+    text-align: right;
+    letter-spacing: 1px;
+  }
+  #stat.live { color: var(--purple); }
+
+  ::-webkit-scrollbar { width: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb {
+    background: #2a1030; border-radius: 5px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--blood); }
+</style>
+</head>
+<body>
+
+<pre id="banner">
+ ███████╗ ██████╗ ██████╗  ██████╗ ███████╗   ██████╗ ████████╗
+ ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝   ██╔══██╗╚══██╔══╝
+ █████╗  ██║   ██║██████╔╝██║  ███╗█████╗     ██████╔╝   ██║
+ ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝     ██╔══██╗   ██║
+ ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗   ██║  ██║   ██║
+ ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝  ╚═╝   ╚═╝
+</pre>
+<div id="sub">adaptive prompt rewriting · red-team research</div>
+
+<div id="bar">
+  <select id="s">
+    <option value="stream">stream</option>
+    <option value="static">static</option>
+    <option value="adaptive">adaptive</option>
+    <option value="pair">pair</option>
+    <option value="tap">tap</option>
+    <option value="crescendo">crescendo</option>
+    <option value="bpj">bpj</option>
+  </select>
+  <input id="q" placeholder="prompt…" autofocus>
+  <button onclick="go()">send</button>
+</div>
+
+<div id="out"></div>
+<div id="stat"></div>
+
+<script>
+let busy = false;
+
+async function go() {
+  if (busy) return;
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  const s = document.getElementById('s').value;
+  const out = document.getElementById('out');
+  const stat = document.getElementById('stat');
+  out.textContent = '';
+  stat.classList.add('live');
+  stat.textContent = 'streaming…';
+  busy = true;
+
+  const t0 = performance.now();
+  try {
+    const r = await fetch('/ask', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({q, s})
+    });
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let chars = 0;
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      const text = dec.decode(value, {stream:true});
+      out.textContent += text;
+      chars += text.length;
+      out.scrollTop = out.scrollHeight;
+    }
+    const dt = ((performance.now() - t0)/1000).toFixed(1);
+    stat.classList.remove('live');
+    stat.textContent = `${chars} chars · ${dt}s`;
+  } catch (e) {
+    stat.classList.remove('live');
+    stat.textContent = 'error: ' + e.message;
+  }
+  busy = false;
+}
+
+document.getElementById('q').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); }
+});
+</script>
+</body>
+</html>
